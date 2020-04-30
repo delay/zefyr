@@ -118,6 +118,18 @@ class RenderZefyrParagraph extends RenderParagraph
     return super.getOffsetForCaret(localPosition, caretPrototype);
   }
 
+  // the trailing \n is not handled by the span, drop it from the sel.
+  // otherwise getBoxesForSelection fails on the web. (out of range)
+  TextSelection trimSelection(TextSelection selection) {
+    if (selection.baseOffset > node.length - 1) {
+      selection = selection.copyWith(baseOffset: node.length - 1);
+    }
+    if (selection.extentOffset > node.length - 1) {
+      selection = selection.copyWith(extentOffset: node.length - 1);
+    }
+    return selection;
+  }
+
   // This method works around some issues in getBoxesForSelection and handles
   // edge-case with our TextSpan objects not having last line-break character.
   @override
@@ -155,7 +167,7 @@ class RenderZefyrParagraph extends RenderParagraph
       local = local.copyWith(extentOffset: local.extentOffset + 1);
       isExtentShifted = true;
     }
-    final result = getBoxesForSelection(local).toList();
+    final result = getBoxesForSelection(trimSelection(local)).toList();
     if (isBaseShifted != 0) {
       final box = result.first;
       final dx = isBaseShifted == -1 ? box.right : box.left;
@@ -213,7 +225,9 @@ class RenderZefyrParagraph extends RenderParagraph
     if (_lastPaintedSelection != selection) {
       _selectionRects = null;
     }
-    _selectionRects ??= getBoxesForSelection(getLocalSelection(selection));
+    var localSel = getLocalSelection(selection);
+
+    _selectionRects ??= getBoxesForSelection(trimSelection(localSel));
     final Paint paint = Paint()..color = selectionColor;
     for (ui.TextBox box in _selectionRects) {
       context.canvas.drawRect(box.toRect().shift(offset), paint);
