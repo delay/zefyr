@@ -329,16 +329,13 @@ abstract class RenderEditableBox extends RenderBox {
 
     int nodeBase = node.documentOffset;
     int nodeExtent = nodeBase + node.length;
-    int base = math.max(0, documentSelection.baseOffset - nodeBase);
-    int extent =
-        math.min(documentSelection.extentOffset, nodeExtent) - nodeBase;
-    return documentSelection.copyWith(baseOffset: base, extentOffset: extent);
+    return getSelectionRebase(nodeBase, nodeExtent, documentSelection);
   }
 
   /// Returns `true` if this box intersects with document [selection].
   bool intersectsWithSelection(TextSelection selection) {
     final int base = node.documentOffset;
     final int extent = base + node.length;
-    return base <= selection.extentOffset && selection.baseOffset <= extent;
+    return selectionIntersectsWith(base, extent, selection);
   }
 }

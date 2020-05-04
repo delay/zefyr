@@ -11,6 +11,31 @@ import 'package:notus/notus.dart';
 import 'caret.dart';
 import 'editable_box.dart';
 
+bool selectionIntersectsWith(int base, int extent, TextSelection selection) {
+  return base <= selection.end && selection.start <= extent;
+}
+
+// return a point between base and extent no matter what!
+int selectionPointRestrict(int base, int extent, int point) {
+  if (point < base) return base;
+  if (point > extent) return extent;
+  return point;
+}
+
+TextSelection getSelectionRebase(
+    int base, int extent, TextSelection selection) {
+  if (!selectionIntersectsWith(base, extent, selection)) {
+    return null;
+  }
+
+  int newBase =
+      selectionPointRestrict(base, extent, selection.baseOffset) - base;
+  int newExtent =
+      selectionPointRestrict(base, extent, selection.extentOffset) - base;
+
+  return selection.copyWith(baseOffset: newBase, extentOffset: newExtent);
+}
+
 /// Represents single paragraph of Zefyr rich-text.
 class ZefyrRichText extends LeafRenderObjectWidget {
   ZefyrRichText({
@@ -77,14 +102,12 @@ class RenderZefyrParagraph extends RenderParagraph
 
   @override
   TextSelection getLocalSelection(TextSelection documentSelection) {
-    if (!intersectsWithSelection(documentSelection)) return null;
-
+    if (!intersectsWithSelection(documentSelection)) {
+      return null;
+    }
     int nodeBase = node.documentOffset;
     int nodeExtent = nodeBase + node.length;
-    int base = math.max(0, documentSelection.baseOffset - nodeBase);
-    int extent =
-        math.min(documentSelection.extentOffset, nodeExtent) - nodeBase;
-    return documentSelection.copyWith(baseOffset: base, extentOffset: extent);
+    return getSelectionRebase(nodeBase, nodeExtent, documentSelection);
   }
 
   @override
@@ -149,38 +172,8 @@ class RenderZefyrParagraph extends RenderParagraph
       ];
     }
 
-    int isBaseShifted = 0;
-    bool isExtentShifted = false;
-    if (local.baseOffset == node.length - 1 && local.baseOffset > 0) {
-      // Since we exclude last line-break from rendered TextSpan we have to
-      // handle end-of-line selection explicitly.
-      local = local.copyWith(baseOffset: local.baseOffset - 1);
-      isBaseShifted = -1;
-    } else if (local.baseOffset == 0 && local.isCollapsed) {
-      // This takes care of beginning of line position.
-      local = local.copyWith(baseOffset: local.baseOffset + 1);
-      isBaseShifted = 1;
-    }
-    if (text.codeUnitAt(local.extentOffset - 1) == 0xA) {
-      // This takes care of the rest end-of-line scenarios, where there are
-      // actually line-breaks in the TextSpan (e.g. in code blocks).
-      local = local.copyWith(extentOffset: local.extentOffset + 1);
-      isExtentShifted = true;
-    }
     final result = getBoxesForSelection(trimSelection(local)).toList();
-    if (isBaseShifted != 0) {
-      final box = result.first;
-      final dx = isBaseShifted == -1 ? box.right : box.left;
-      result.removeAt(0);
-      result.insert(
-          0, ui.TextBox.fromLTRBD(dx, box.top, dx, box.bottom, box.direction));
-    }
-    if (isExtentShifted) {
-      final box = result.last;
-      result.removeLast();
-      result.add(ui.TextBox.fromLTRBD(
-          box.left, box.top, box.left, box.bottom, box.direction));
-    }
+
     return result;
   }
 
@@ -215,7 +208,7 @@ class RenderZefyrParagraph extends RenderParagraph
   bool intersectsWithSelection(TextSelection selection) {
     final int base = node.documentOffset;
     final int extent = base + node.length;
-    return base <= selection.extentOffset && selection.baseOffset <= extent;
+    return selectionIntersectsWith(base, extent, selection);
   }
 
   TextSelection _lastPaintedSelection;

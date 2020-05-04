@@ -9,6 +9,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 import 'package:notus/notus.dart';
+import 'package:zefyr/src/widgets/rich_text.dart';
 import 'package:zefyr/zefyr.dart';
 
 import 'editable_box.dart';
@@ -116,10 +117,7 @@ class RenderEditableImage extends RenderBox
 
     int nodeBase = node.documentOffset;
     int nodeExtent = nodeBase + node.length;
-    int base = math.max(0, documentSelection.baseOffset - nodeBase);
-    int extent =
-        math.min(documentSelection.extentOffset, nodeExtent) - nodeBase;
-    return documentSelection.copyWith(baseOffset: base, extentOffset: extent);
+    return getSelectionRebase(nodeBase, nodeExtent, documentSelection);
   }
 
   @override
@@ -161,7 +159,7 @@ class RenderEditableImage extends RenderBox
   bool intersectsWithSelection(TextSelection selection) {
     final int base = node.documentOffset;
     final int extent = base + node.length;
-    return base <= selection.extentOffset && selection.baseOffset <= extent;
+    return selectionIntersectsWith(base, extent, selection);
   }
 
   @override
